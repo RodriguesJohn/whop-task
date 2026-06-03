@@ -20,10 +20,11 @@ npm run dev
 | `npm run dev`  | Vite dev server    |
 | `npm run build`| Production build   |
 | `npm run preview` | Preview production build |
+| `npm run generate:images` | Generate `public/feed/*.png` for the home feed (needs `OPENAI_API_KEY` in `.env`) |
 
 ## Environment
 
-Copy `.env.example` to `.env` and set `OPENAI_API_KEY` if you add image-generation (use a server or serverless proxy — do not expose keys in client-only `VITE_*` bundles for production).
+Copy `.env.example` to `.env` and set `OPENAI_API_KEY` for local image generation (`npm run generate:images`). Keys stay in Node only — not shipped to the browser. For production, prefer a server or serverless proxy instead of `VITE_*` client env vars.
 
 ## License
 

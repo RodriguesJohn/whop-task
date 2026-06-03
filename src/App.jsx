@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TASKS } from './tasks'
 import { SEED_OWNER_PROGRAMS, emptyMetrics } from './ownerPrograms'
 import { Icon } from './icons'
+import { AnimatedDoneCheck } from './CompletionEffects'
 
 export default function App() {
   const [tab, setTab] = useState('home')       // bottom nav: home (feed) | discover
   const [flow, setFlow] = useState(null)          // null | qualify | tasks | detail | submit | done | ownerHome | ownerCreate | ownerPublished | ownerProgram
   const [active, setActive] = useState(null)      // selected task (earner) OR selected owner program id
-  const [completed, setCompleted] = useState([])  // ids of submitted tasks
+  /** Seed submissions so Completed / Stats show realistic earnings in the prototype. */
+  const [completed, setCompleted] = useState(() => ['palo-alto', 'whop-meme', 'story-share', 'google-review'])
   const [ownerPrograms, setOwnerPrograms] = useState(() => [...SEED_OWNER_PROGRAMS])
   /** 'qualify' = back to role picker; 'feed' = back out to home feed */
   const [ownerEntry, setOwnerEntry] = useState(null)
@@ -69,77 +71,107 @@ export default function App() {
   const selectedProgram = active && typeof active === 'string' ? ownerPrograms.find((p) => p.id === active) : null
 
   return (
-    <div className="phone">
-      <UrlBar />
+    <div className="device-mockup">
+      <div className="device-chrome" data-mockup-chrome>
+        <div className="device-screen-shell">
+          <div className="device-notch" aria-hidden />
+          <div className="phone">
+            <UrlBar />
 
-      {flow ? (
-        <div className="flow" key={flow}>
-          <FlowHeader title={flowTitle()} onBack={flowBack()} onClose={closeFlow} />
+            {flow ? (
+              <div className="flow" key={flow}>
+                <FlowHeader title={flowTitle()} onBack={flowBack()} onClose={closeFlow} />
 
-          {flow === 'qualify' && (
-            <Qualify
-              onPick={(role) => {
-                if (role === 'earner') {
-                  setOwnerEntry(null)
-                  setFlow('tasks')
-                } else {
-                  setOwnerEntry('qualify')
-                  setFlow('ownerHome')
-                }
+                {flow === 'qualify' && (
+                  <Qualify
+                    onPick={(role) => {
+                      if (role === 'earner') {
+                        setOwnerEntry(null)
+                        setFlow('tasks')
+                      } else {
+                        setOwnerEntry('qualify')
+                        setFlow('ownerHome')
+                      }
+                    }}
+                  />
+                )}
+                {flow === 'tasks' && <TaskList tasks={TASKS} completed={completed} onOpen={openTask} />}
+                {flow === 'detail' && active && (
+                  <TaskDetail task={active} done={completed.includes(active.id)} onStart={() => setFlow('submit')} />
+                )}
+                {flow === 'submit' && active && <SubmitTask task={active} onSubmit={submitTask} />}
+                {flow === 'done' && active && <Done task={active} onMore={resetToTasks} onClose={closeFlow} />}
+                {flow === 'ownerHome' && (
+                  <OwnerHome
+                    programs={ownerPrograms}
+                    onPostNew={() => setFlow('ownerCreate')}
+                    onOpenProgram={(id) => { setActive(id); setFlow('ownerProgram') }}
+                  />
+                )}
+                {flow === 'ownerCreate' && (
+                  <OwnerCreateForm onCancel={() => setFlow('ownerHome')} onPublish={publishOwnerProgram} />
+                )}
+                {flow === 'ownerPublished' && selectedProgram && (
+                  <OwnerPublished program={selectedProgram} onOpenTracker={() => setFlow('ownerProgram')} onHome={() => setFlow('ownerHome')} />
+                )}
+                {flow === 'ownerProgram' && selectedProgram && (
+                  <OwnerProgramTracker program={selectedProgram} />
+                )}
+              </div>
+            ) : (
+              <div className="page" key={tab}>
+                {tab === 'home' ? (
+                  <FeedHome
+                    onEarn={() => setFlow('qualify')}
+                    onPostProgram={() => {
+                      setOwnerEntry('feed')
+                      setFlow('ownerHome')
+                    }}
+                  />
+                ) : (
+                  <DiscoverHome onStart={() => setFlow('qualify')} />
+                )}
+              </div>
+            )}
+
+            <BottomNav
+              tab={tab}
+              setTab={(t) => {
+                setTab(t)
+                if (flow) closeFlow()
               }}
             />
-          )}
-          {flow === 'tasks' && <TaskList tasks={TASKS} completed={completed} onOpen={openTask} />}
-          {flow === 'detail' && active && (
-            <TaskDetail task={active} done={completed.includes(active.id)} onStart={() => setFlow('submit')} />
-          )}
-          {flow === 'submit' && active && <SubmitTask task={active} onSubmit={submitTask} />}
-          {flow === 'done' && active && <Done task={active} onMore={resetToTasks} onClose={closeFlow} />}
-          {flow === 'ownerHome' && (
-            <OwnerHome
-              programs={ownerPrograms}
-              onPostNew={() => setFlow('ownerCreate')}
-              onOpenProgram={(id) => { setActive(id); setFlow('ownerProgram') }}
-            />
-          )}
-          {flow === 'ownerCreate' && (
-            <OwnerCreateForm onCancel={() => setFlow('ownerHome')} onPublish={publishOwnerProgram} />
-          )}
-          {flow === 'ownerPublished' && selectedProgram && (
-            <OwnerPublished program={selectedProgram} onOpenTracker={() => setFlow('ownerProgram')} onHome={() => setFlow('ownerHome')} />
-          )}
-          {flow === 'ownerProgram' && selectedProgram && (
-            <OwnerProgramTracker program={selectedProgram} />
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="page" key={tab}>
-            {tab === 'home' ? (
-              <FeedHome
-                onEarn={() => setFlow('qualify')}
-                onPostProgram={() => {
-                  setOwnerEntry('feed')
-                  setFlow('ownerHome')
-                }}
-              />
-            ) : (
-              <DiscoverHome onStart={() => setFlow('qualify')} />
-            )}
           </div>
-          <BottomNav tab={tab} setTab={setTab} />
-        </>
-      )}
+        </div>
+        <div className="device-bottom-cap" aria-hidden>
+          <div className="device-home-indicator" />
+        </div>
+      </div>
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ */
+function getBrowserDisplayUrl() {
+  if (typeof window === 'undefined') return ''
+  const { host, pathname, search } = window.location
+  const path = pathname === '/' && !search ? '/' : `${pathname}${search}`
+  return `${host}${path}`
+}
+
 function UrlBar() {
+  const [displayUrl, setDisplayUrl] = useState(getBrowserDisplayUrl)
+
+  useEffect(() => {
+    setDisplayUrl(getBrowserDisplayUrl())
+  }, [])
+
   return (
     <div className="urlbar">
       <span className="url-icon"><Icon name="aa" size={15} /></span>
-      <span className="url-text">whop.com</span>
+      <span className="url-text" title={displayUrl || undefined}>
+        {displayUrl || 'Loading…'}
+      </span>
       <span className="url-share"><Icon name="share" size={15} /></span>
     </div>
   )
@@ -179,6 +211,7 @@ const MIXED_FEED = [
     comments: 12,
     reposts: 3,
     views: 104,
+    image: '/feed/d1-trade-academy.png',
   },
   {
     kind: 'task_complete',
@@ -191,12 +224,13 @@ const MIXED_FEED = [
     avatar: 'M',
     task: 'Rep Whop in Palo Alto',
     media: '🎥',
-    caption: '“Whop is an awesome company” — easiest $25 I ever made 🔥',
+    caption: '“Whop is an awesome company” the easiest $25 I ever made',
     likes: 128,
     comments: 24,
     reposts: 9,
     views: 892,
     pay: 25,
+    image: '/feed/t1-maya-palo-alto.png',
   },
   {
     kind: 'link',
@@ -207,12 +241,13 @@ const MIXED_FEED = [
     handle: '@traplinevault',
     when: '14m',
     pinned: true,
-    text: 'Y’all wondering where it’s posted 👇',
+    text: 'Y’all wondering where it’s posted, link below.',
     linkLabel: 't.me/traplinevault',
     likes: 56,
     comments: 31,
     reposts: 14,
     views: 176,
+    image: '/feed/l1-trapline.png',
   },
   {
     kind: 'discussion',
@@ -228,6 +263,7 @@ const MIXED_FEED = [
     comments: 18,
     reposts: 5,
     views: 192,
+    image: '/feed/d2-kiss-ai.png',
   },
   {
     kind: 'task_complete',
@@ -246,6 +282,7 @@ const MIXED_FEED = [
     reposts: 6,
     views: 540,
     pay: 15,
+    image: '/feed/t2-aria-meme.png',
   },
   {
     kind: 'discussion',
@@ -256,12 +293,13 @@ const MIXED_FEED = [
     handle: '@remarkablepi…',
     when: '1h',
     pinned: false,
-    text: 'MORE WINNINGS COMING ✅ Posting slips in the thread — who’s tailing today?',
+    text: 'MORE WINNINGS COMING. Posting slips in the thread, who’s tailing today?',
     likes: 203,
     comments: 44,
     reposts: 22,
     views: 1204,
     hasMediaStrip: true,
+    image: '/feed/d3-remarkable-picks.png',
   },
   {
     kind: 'task_complete',
@@ -280,8 +318,28 @@ const MIXED_FEED = [
     reposts: 2,
     views: 310,
     pay: 12,
+    image: '/feed/t3-leo-story.png',
   },
 ]
+
+function FeedPostImage({ src, alt, className, fallback }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) {
+    return <div className={className}>{fallback ?? null}</div>
+  }
+  return (
+    <div className={`${className} post-media-has-img`}>
+      <img
+        src={src}
+        alt={alt || ''}
+        className="post-media-img"
+        onError={() => setFailed(true)}
+        decoding="async"
+        loading="lazy"
+      />
+    </div>
+  )
+}
 
 function FeedHome({ onEarn, onPostProgram }) {
   const [feedTab, setFeedTab] = useState('all')
@@ -289,12 +347,18 @@ function FeedHome({ onEarn, onPostProgram }) {
   return (
     <>
       <header className="home-top">
-        <span className="home-avatar">JR</span>
-        <h1 className="home-title">Home</h1>
-        <span className="home-balance">$0.00</span>
+        <span className="home-avatar stagger" style={{ animationDelay: '0ms' }}>
+          JR
+        </span>
+        <h1 className="home-title stagger" style={{ animationDelay: '45ms' }}>
+          Home
+        </h1>
+        <span className="home-balance stagger" style={{ animationDelay: '45ms' }}>
+          $0.00
+        </span>
       </header>
 
-      <div className="home-tabs">
+      <div className="home-tabs stagger" style={{ animationDelay: '95ms' }}>
         {['all', 'following', 'joined'].map((id) => (
           <button
             key={id}
@@ -317,7 +381,7 @@ function FeedHome({ onEarn, onPostProgram }) {
                   <span className="ftc-live">Live on Whop</span>
                 </div>
                 <p className="ftc-title">Get paid without an audience</p>
-                <p className="ftc-copy">Do quick tasks for brands — or post your own program and buy real output.</p>
+                <p className="ftc-copy">Do quick tasks for brands, or post your own program and buy real output.</p>
                 <div className="ftc-actions">
                   <button type="button" className="ftc-btn primary" onClick={onEarn}>Earn from tasks</button>
                   <button type="button" className="ftc-btn secondary" onClick={onPostProgram}>Post a task program</button>
@@ -334,7 +398,7 @@ function FeedHome({ onEarn, onPostProgram }) {
                   <span className="post-avatar">{item.avatar}</span>
                   <div className="post-id">
                     <span className="post-name">{item.name}</span>
-                    <span className="post-meta">{item.handle} · {item.when}{item.pinned ? ' · 📌' : ''}</span>
+                    <span className="post-meta">{item.handle} · {item.when}{item.pinned ? ' · Pinned' : ''}</span>
                   </div>
                 </div>
                 <div className="post-task-row">
@@ -342,12 +406,21 @@ function FeedHome({ onEarn, onPostProgram }) {
                   {item.pay != null && <span className="post-pay-inline">+${item.pay}</span>}
                 </div>
                 <p className="post-caption">{item.caption}</p>
-                <div className="post-media post-media-sm">{item.media}</div>
+                <FeedPostImage
+                  src={item.image}
+                  alt=""
+                  className="post-media post-media-sm"
+                  fallback={(
+                    <span className="post-media-fallback">
+                      {item.media ? <span className="post-media-emoji">{item.media}</span> : <Icon name="play" size={26} />}
+                    </span>
+                  )}
+                />
                 <div className="post-actions post-actions-row">
-                  <span>💬 {item.comments}</span>
-                  <span>↻ {item.reposts}</span>
-                  <span>👁 {item.views}</span>
-                  <span>↗</span>
+                  <span><Icon name="chat" size={15} /> {item.comments}</span>
+                  <span><Icon name="repost" size={15} /> {item.reposts}</span>
+                  <span><Icon name="eye" size={15} /> {item.views}</span>
+                  <span><Icon name="share" size={15} /></span>
                 </div>
               </article>
             )
@@ -361,16 +434,22 @@ function FeedHome({ onEarn, onPostProgram }) {
                   <span className="post-avatar ph">{item.name[0]}</span>
                   <div className="post-id">
                     <span className="post-name">{item.name}</span>
-                    <span className="post-meta">{item.handle} · {item.when}{item.pinned ? ' · 📌' : ''}</span>
+                    <span className="post-meta">{item.handle} · {item.when}{item.pinned ? ' · Pinned' : ''}</span>
                   </div>
                 </div>
                 <p className="post-caption">{item.text}</p>
+                <FeedPostImage
+                  src={item.image}
+                  alt=""
+                  className="post-media post-media-sm"
+                  fallback={<div className="post-media-placeholder" aria-hidden />}
+                />
                 <div className="post-link-pill">{item.linkLabel}</div>
                 <div className="post-actions post-actions-row">
-                  <span>💬 {item.comments}</span>
-                  <span>↻ {item.reposts}</span>
-                  <span>👁 {item.views}</span>
-                  <span>↗</span>
+                  <span><Icon name="chat" size={15} /> {item.comments}</span>
+                  <span><Icon name="repost" size={15} /> {item.reposts}</span>
+                  <span><Icon name="eye" size={15} /> {item.views}</span>
+                  <span><Icon name="share" size={15} /></span>
                 </div>
               </article>
             )
@@ -383,18 +462,31 @@ function FeedHome({ onEarn, onPostProgram }) {
                 <span className="post-avatar ph">{item.name[0]}</span>
                 <div className="post-id">
                   <span className="post-name">{item.name}</span>
-                  <span className="post-meta">{item.handle} · {item.when}{item.pinned ? ' · 📌' : ''}</span>
+                  <span className="post-meta">{item.handle} · {item.when}{item.pinned ? ' · Pinned' : ''}</span>
                 </div>
               </div>
               <p className="post-caption">{item.text}</p>
-              {item.hasMediaStrip && (
-                <div className="post-media-strip" aria-hidden>📊 · 📈 · ✅</div>
-              )}
+              {item.image ? (
+                <FeedPostImage
+                  src={item.image}
+                  alt=""
+                  className="post-media post-media-sm"
+                  fallback={
+                    item.hasMediaStrip ? (
+                      <div className="post-media-strip">Slips attached · 3 picks</div>
+                    ) : (
+                      <div className="post-media-placeholder" aria-hidden />
+                    )
+                  }
+                />
+              ) : item.hasMediaStrip ? (
+                <div className="post-media-strip">Slips attached · 3 picks</div>
+              ) : null}
               <div className="post-actions post-actions-row">
-                <span>💬 {item.comments}</span>
-                <span>↻ {item.reposts}</span>
-                <span>👁 {item.views}</span>
-                <span>↗</span>
+                <span><Icon name="chat" size={15} /> {item.comments}</span>
+                <span><Icon name="repost" size={15} /> {item.reposts}</span>
+                <span><Icon name="eye" size={15} /> {item.views}</span>
+                <span><Icon name="share" size={15} /></span>
               </div>
             </article>
           )
@@ -410,15 +502,21 @@ function FeedHome({ onEarn, onPostProgram }) {
 function DiscoverHome({ onStart }) {
   return (
     <>
-      <div className="toggle">
-        <button className="seg">Launch</button>
-        <button className="seg active">Discover</button>
+      <div className="discover-top">
+        <div className="toggle stagger" style={{ animationDelay: '0ms' }}>
+          <button className="seg">Launch</button>
+          <button className="seg active">Discover</button>
+        </div>
+
+        <h1 className="hero stagger" style={{ animationDelay: '50ms' }}>
+          Where the internet<br />does business.
+        </h1>
+        <p className="subhero stagger" style={{ animationDelay: '100ms' }}>
+          Build your business and get discovered by over 21M+ customers on Whop.
+        </p>
       </div>
 
-      <h1 className="hero">Where the internet<br />does business.</h1>
-      <p className="subhero">Build your business and get discovered by over 21M+ customers on Whop.</p>
-
-      <div className="prompt">
+      <div className="prompt stagger" style={{ animationDelay: '150ms' }}>
         <div className="prompt-text">Create a meal prep subscription..</div>
         <div className="prompt-row">
           <button className="prompt-plus">+</button>
@@ -428,10 +526,12 @@ function DiscoverHome({ onStart }) {
         </div>
       </div>
 
-      <h2 className="section-title">Getting started</h2>
+      <h2 className="section-title stagger" style={{ animationDelay: '200ms' }}>
+        Getting started
+      </h2>
 
       {/* NEW — the Tasks card with the static gradient glow */}
-      <button className="tasks-intro stagger" style={{ animationDelay: '40ms' }} onClick={onStart}>
+      <button className="tasks-intro stagger" style={{ animationDelay: '250ms' }} onClick={onStart}>
         <span className="glow" />
         <span className="intro-inner">
           <span className="intro-row">
@@ -446,7 +546,7 @@ function DiscoverHome({ onStart }) {
         </span>
       </button>
 
-      <div className="reward-card stagger" style={{ animationDelay: '120ms' }}>
+      <div className="reward-card stagger" style={{ animationDelay: '310ms' }}>
         <div className="reward-top">
           <span className="reward-badge">◉ Clipping</span>
           <span className="reward-arrow">★→★</span>
@@ -476,7 +576,7 @@ function Qualify({ onPick }) {
       <p className="screen-sub">We’ll tailor this flow to you.</p>
 
       <button type="button" className="choice stagger" style={{ animationDelay: '40ms' }} onClick={() => onPick('earner')}>
-        <div className="choice-emoji">💸</div>
+        <div className="choice-emoji"><Icon name="coins" size={22} /></div>
         <div className="choice-body">
           <h3>I want to earn</h3>
           <p>Browse paid tasks from brands. Get paid on approval.</p>
@@ -485,7 +585,7 @@ function Qualify({ onPick }) {
       </button>
 
       <button type="button" className="choice stagger" style={{ animationDelay: '120ms' }} onClick={() => onPick('owner')}>
-        <div className="choice-emoji">🏢</div>
+        <div className="choice-emoji"><Icon name="store" size={22} /></div>
         <div className="choice-body">
           <h3>I’m a business owner</h3>
           <p>Post a task program, fund escrow, and track submissions & ROI.</p>
@@ -501,6 +601,27 @@ function Qualify({ onPick }) {
 /* ------------------------------------------------------------------ */
 const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
+function OwnerSubmissionBars({ values, accent }) {
+  const maxBar = Math.max(1, ...values)
+  return (
+    <div className="owner-bars" role="img" aria-label="Submissions per day">
+      {values.map((v, i) => {
+        const pct = (v / maxBar) * 100
+        return (
+          <div key={`${DAY_LABELS[i]}-${i}`} className="owner-bar-wrap">
+            <div
+              className={`owner-bar owner-bar-anim${accent ? ' accent' : ''}`}
+              style={{ '--h': `${pct}%`, animationDelay: `${i * 0.055}s` }}
+              title={`${v} submissions`}
+            />
+            <span className="owner-bar-lbl">{DAY_LABELS[i]}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function OwnerHome({ programs, onPostNew, onOpenProgram }) {
   const totals = programs.reduce(
     (acc, p) => {
@@ -515,13 +636,56 @@ function OwnerHome({ programs, onPostNew, onOpenProgram }) {
   const merged7d = DAY_LABELS.map((_, i) =>
     programs.reduce((sum, p) => sum + (p.metrics.submissions7d[i] || 0), 0)
   )
-  const maxBar = Math.max(1, ...merged7d)
 
   return (
     <div className="screen owner-screen">
-      <h2 className="screen-h1">Your task programs</h2>
-      <p className="screen-sub">Post work, review output, and watch performance — not the same as earning.</p>
+      <h2 className="screen-h1">Task programs</h2>
+      <p className="screen-sub">Post work and get real output from creators. Start by posting a task.</p>
 
+      {/* Lead with the action — post a task */}
+      <button type="button" className="owner-cta-card stagger" style={{ animationDelay: '40ms' }} onClick={onPostNew}>
+        <span className="occ-text">
+          <span className="occ-title">Post a task program</span>
+          <span className="occ-sub">Define the work, fund escrow, only pay for approved submissions.</span>
+        </span>
+        <span className="occ-plus"><Icon name="plus" size={22} /></span>
+      </button>
+
+      {/* Ongoing tasks */}
+      <div className="owner-section-head">
+        <h3 className="owner-h3">Ongoing tasks</h3>
+        <span className="owner-count">{totals.active} live</span>
+      </div>
+
+      {programs.length === 0 ? (
+        <p className="owner-empty">No tasks yet. Post your first program to start collecting submissions.</p>
+      ) : (
+        <div className="owner-program-list">
+          {programs.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              className="owner-program-card stagger"
+              style={{ animationDelay: `${100 + i * 50}ms` }}
+              onClick={() => onOpenProgram(p.id)}
+            >
+              <div className="opc-top">
+                <span className={`opc-status opc-${p.status}`}>{p.status}</span>
+                <span className="opc-date">{p.createdLabel}</span>
+              </div>
+              <h4 className="opc-title">{p.title}</h4>
+              <p className="opc-meta">${p.payoutPer} · {p.slotsTotal - p.slotsRemaining}/{p.slotsTotal} filled · {p.metrics.pendingReview} in review</p>
+              <div className="opc-foot">
+                <span className="opc-pill">${p.metrics.paidOut} paid</span>
+                <span className="opc-pill dim">{(p.metrics.feedImpressions / 1000).toFixed(1)}k views</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Performance — demoted below the action + ongoing tasks */}
+      <h3 className="owner-h3 owner-perf-h">Performance</h3>
       <div className="owner-kpis">
         <div className="owner-kpi"><span className="owner-kpi-val">{totals.active}</span><span className="owner-kpi-lbl">live programs</span></div>
         <div className="owner-kpi"><span className="owner-kpi-val">{totals.submissions}</span><span className="owner-kpi-lbl">submissions</span></div>
@@ -534,42 +698,7 @@ function OwnerHome({ programs, onPostNew, onOpenProgram }) {
           <span className="owner-chart-title">Submissions (last 7 days)</span>
           <span className="owner-chart-hint">all programs</span>
         </div>
-        <div className="owner-bars" role="img" aria-label="Bar chart of submissions per day">
-          {merged7d.map((v, i) => (
-            <div key={DAY_LABELS[i] + i} className="owner-bar-wrap">
-              <div className="owner-bar" style={{ height: `${(v / maxBar) * 100}%` }} title={`${v} submissions`} />
-              <span className="owner-bar-lbl">{DAY_LABELS[i]}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="owner-section-head">
-        <h3 className="owner-h3">Programs</h3>
-        <button type="button" className="owner-link-btn" onClick={onPostNew}>+ Post new</button>
-      </div>
-
-      <div className="owner-program-list">
-        {programs.map((p, i) => (
-          <button
-            key={p.id}
-            type="button"
-            className="owner-program-card stagger"
-            style={{ animationDelay: `${60 + i * 50}ms` }}
-            onClick={() => onOpenProgram(p.id)}
-          >
-            <div className="opc-top">
-              <span className={`opc-status opc-${p.status}`}>{p.status}</span>
-              <span className="opc-date">{p.createdLabel}</span>
-            </div>
-            <h4 className="opc-title">{p.title}</h4>
-            <p className="opc-meta">${p.payoutPer} · {p.slotsTotal - p.slotsRemaining}/{p.slotsTotal} filled · {p.metrics.pendingReview} in review</p>
-            <div className="opc-foot">
-              <span className="opc-pill">${p.metrics.paidOut} paid</span>
-              <span className="opc-pill dim">{(p.metrics.feedImpressions / 1000).toFixed(1)}k views</span>
-            </div>
-          </button>
-        ))}
+        <OwnerSubmissionBars values={merged7d} accent={false} />
       </div>
 
       <div className="sticky-cta">
@@ -690,7 +819,7 @@ function OwnerCreateForm({ onCancel, onPublish }) {
 function OwnerPublished({ program, onOpenTracker, onHome }) {
   return (
     <div className="screen done-screen owner-screen">
-      <div className="done-check">✓</div>
+      <AnimatedDoneCheck label="Program published" />
       <h2 className="done-h">Program is live</h2>
       <p className="done-sub">
         <strong>{program.title}</strong> is accepting submissions. <strong>${program.metrics.escrowBudget}</strong> is earmarked in escrow; you only pay for approvals.
@@ -713,7 +842,6 @@ function OwnerProgramTracker({ program }) {
   const m = program.metrics
   const totalDecided = (m.approved + m.rejected) || 1
   const apprPct = Math.round((m.approved / totalDecided) * 100)
-  const maxBar = Math.max(1, ...m.submissions7d)
   const slotsUsed = program.slotsTotal - program.slotsRemaining
   const fillPct = Math.min(100, Math.round((slotsUsed / program.slotsTotal) * 100))
   const cpo = m.approved > 0 ? (m.paidOut / m.approved).toFixed(0) : '—'
@@ -750,14 +878,7 @@ function OwnerProgramTracker({ program }) {
         <div className="owner-chart-head">
           <span className="owner-chart-title">This program — submissions / day</span>
         </div>
-        <div className="owner-bars">
-          {m.submissions7d.map((v, i) => (
-            <div key={i} className="owner-bar-wrap">
-              <div className="owner-bar accent" style={{ height: `${(v / maxBar) * 100}%` }} />
-              <span className="owner-bar-lbl">{DAY_LABELS[i]}</span>
-            </div>
-          ))}
-        </div>
+        <OwnerSubmissionBars values={m.submissions7d} accent />
       </div>
 
       <div className="owner-donut-row">
@@ -811,35 +932,258 @@ function OwnerProgramTracker({ program }) {
   )
 }
 
-function TaskList({ tasks, completed, onOpen }) {
-  return (
-    <div className="screen">
-      <h2 className="screen-h1">Tasks for you</h2>
-      <p className="screen-sub">{tasks.length} available · paid on approval</p>
+const EARN_STAT_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
-      <div className="task-list">
-        {tasks.map((t, i) => {
-          const done = completed.includes(t.id)
+/** Demo weekly activity shape for the Stats chart (relative units, not dollars). */
+const EARN_WEEK_ACTIVITY_DEMO = [2, 4, 3, 7, 12, 9, 11]
+
+function EarnWeekBars({ values }) {
+  const maxBar = Math.max(1, ...values)
+  return (
+    <div className="earn-chart-card">
+      <div className="earn-chart-head">
+        <span className="earn-chart-title">Activity (last 7 days)</span>
+        <span className="earn-chart-hint">demo</span>
+      </div>
+      <div className="earn-bars" role="img" aria-label="Relative activity by day">
+        {values.map((v, i) => {
+          const pct = (v / maxBar) * 100
           return (
-            <button key={t.id} className="task-card stagger" style={{ animationDelay: `${i * 70}ms` }} onClick={() => onOpen(t)}>
-              <div className="tc-emoji">{t.emoji}</div>
-              <div className="tc-body">
-                <div className="tc-top">
-                  <span className="tc-title">{t.title}</span>
-                  <span className="tc-pay">${t.payout}</span>
-                </div>
-                <p className="tc-blurb">{t.blurb}</p>
-                <div className="tc-meta">
-                  <span className={`tier tier-${t.tier.toLowerCase()}`}>{t.tier}</span>
-                  <span>{t.time}</span>
-                  <span>· {t.slots} slots</span>
-                  {done && <span className="tc-done">✓ Submitted</span>}
-                </div>
-              </div>
-            </button>
+            <div key={`${EARN_STAT_DAYS[i]}-${i}`} className="earn-bar-wrap">
+              <div
+                className="earn-bar earn-bar-anim"
+                style={{ '--h': `${pct}%`, animationDelay: `${i * 0.055}s` }}
+                title={`${EARN_STAT_DAYS[i]} · ${v}`}
+              />
+              <span className="earn-bar-lbl">{EARN_STAT_DAYS[i]}</span>
+            </div>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function TaskList({ tasks, completed, onOpen }) {
+  const [earnTab, setEarnTab] = useState('browse')
+
+  const completedTasks = tasks.filter((t) => completed.includes(t.id))
+  const openTasks = tasks.filter((t) => !completed.includes(t.id))
+  const totalPending = completedTasks.reduce((sum, t) => sum + t.payout, 0)
+  const avgPayout = completedTasks.length ? Math.round(totalPending / completedTasks.length) : 0
+  const sortedByPayout = completedTasks.slice().sort((a, b) => b.payout - a.payout)
+  /** Matches Completed tab: highest-payout submission is treated as already paid (prototype). */
+  const paidToBalance = sortedByPayout[0]?.payout ?? 0
+  const inReviewValue = Math.max(0, totalPending - paidToBalance)
+  const creativeDone = completedTasks.filter((t) => t.tier === 'Creative').length
+  const microDone = completedTasks.filter((t) => t.tier === 'Micro').length
+  const powerUserPct = Math.min(100, completedTasks.length * 25)
+  const weekActivity =
+    completedTasks.length === 0 ? [0, 0, 0, 0, 0, 0, 0] : EARN_WEEK_ACTIVITY_DEMO
+
+  const recommended = (() => {
+    if (openTasks.length === 0) return []
+    const byPay = [...openTasks].sort((a, b) => b.payout - a.payout)
+    const micro = [...openTasks].filter((t) => t.tier === 'Micro').sort((a, b) => a.payout - b.payout)
+    const picks = []
+    if (byPay[0]) picks.push({ task: byPay[0], reason: 'Highest payout on the board' })
+    const second = micro.find((t) => t.id !== byPay[0]?.id) || openTasks.find((t) => t.id !== byPay[0]?.id)
+    if (second) picks.push({ task: second, reason: second.tier === 'Micro' ? 'Fast Micro · build momentum' : 'Solid next step after your last win' })
+    return picks.slice(0, 2)
+  })()
+
+  const tip =
+    completed.length === 0
+      ? 'Start with a Micro task to get your first approval faster — then chase Creative payouts.'
+      : completedTasks.some((t) => t.tier === 'Creative')
+        ? 'You’re already doing Creative work. Mix in a Micro task this week to keep approvals flowing.'
+        : 'Ready for more per task? Try a Creative tier when you have ~20 minutes.'
+
+  return (
+    <div className="screen earn-screen">
+      <h2 className="screen-h1">Tasks for you</h2>
+      <p className="screen-sub earn-sub">
+        {earnTab === 'browse' && `${openTasks.length} open · ${completedTasks.length} submitted`}
+        {earnTab === 'completed' && `${completedTasks.length} in your history`}
+        {earnTab === 'stats' && 'Your earning snapshot'}
+      </p>
+
+      <div className="earn-tabs" role="tablist" aria-label="Task views">
+        {[
+          { id: 'browse', label: 'Browse' },
+          { id: 'completed', label: 'Completed' },
+          { id: 'stats', label: 'Stats' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={earnTab === tab.id}
+            className={`earn-tab ${earnTab === tab.id ? 'active' : ''}`}
+            onClick={() => setEarnTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {earnTab === 'browse' && (
+        <>
+          {recommended.length > 0 && (
+            <section className="earn-section">
+              <h3 className="earn-h3">Recommended</h3>
+              <p className="earn-hint">Picked from payout, time, and what you haven’t done yet.</p>
+              <div className="earn-rec-list">
+                {recommended.map(({ task: t, reason }) => (
+                  <button key={t.id} type="button" className="earn-rec-card" onClick={() => onOpen(t)}>
+                    <div className="earn-rec-top">
+                      <span className="earn-rec-title">{t.title}</span>
+                      <span className="earn-rec-pay">${t.payout}</span>
+                    </div>
+                    <p className="earn-rec-reason">{reason}</p>
+                    <div className="earn-rec-meta">
+                      <span className={`tier tier-${t.tier.toLowerCase()}`}>{t.tier}</span>
+                      <span>{t.time}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="earn-section">
+            <h3 className="earn-h3">All tasks</h3>
+            <div className="task-list">
+              {tasks.map((t, i) => {
+                const done = completed.includes(t.id)
+                return (
+                  <button key={t.id} className="task-card stagger" style={{ animationDelay: `${i * 50}ms` }} onClick={() => onOpen(t)}>
+                    <div className="tc-body">
+                      <div className="tc-top">
+                        <span className="tc-title">{t.title}</span>
+                        <span className="tc-pay">${t.payout}</span>
+                      </div>
+                      <p className="tc-blurb">{t.blurb}</p>
+                      <div className="tc-meta">
+                        <span className={`tier tier-${t.tier.toLowerCase()}`}>{t.tier}</span>
+                        <span>{t.time}</span>
+                        <span>· {t.slots} slots</span>
+                        {done && <span className="tc-done">Submitted</span>}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        </>
+      )}
+
+      {earnTab === 'completed' && (
+        <div className="earn-panel">
+          <div className="earn-summary">
+            <div className="earn-summary-main">
+              <span className="earn-summary-label">Value submitted</span>
+              <span className="earn-summary-val">${totalPending}</span>
+              <span className="earn-summary-note">Paid to your balance when each task is approved.</span>
+            </div>
+            <div className="earn-summary-side">
+              <span className="earn-summary-num">{completedTasks.length}</span>
+              <span className="earn-summary-subl">submissions</span>
+            </div>
+          </div>
+
+          {completedTasks.length === 0 ? (
+            <div className="earn-empty">
+              <p className="earn-empty-title">No completed tasks yet</p>
+              <p className="earn-empty-copy">Finish one on the Browse tab — your payouts show up here to keep you motivated.</p>
+            </div>
+          ) : (
+            <ul className="earn-completed-list">
+              {completedTasks
+                .slice()
+                .sort((a, b) => b.payout - a.payout)
+                .map((t, i) => (
+                <li key={t.id} className="earn-completed-row">
+                  <div>
+                    <p className="earn-completed-title">{t.title}</p>
+                    <p className="earn-completed-status">
+                      {i === 0 ? 'Approved · paid to your balance' : 'In review · funds release on approval'}
+                    </p>
+                  </div>
+                  <span className="earn-completed-pay">+${t.payout}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {earnTab === 'stats' && (
+        <div className="earn-panel earn-stats">
+          <div className="earn-stat-grid">
+            <div className="earn-stat-card">
+              <span className="earn-stat-k">Submitted value</span>
+              <span className="earn-stat-v earn-stat-money">${totalPending}</span>
+              <span className="earn-stat-d">Total you’ve put in for approval</span>
+            </div>
+            <div className="earn-stat-card">
+              <span className="earn-stat-k">Tasks done</span>
+              <span className="earn-stat-v">{completedTasks.length}</span>
+              <span className="earn-stat-d">All-time submissions</span>
+            </div>
+            <div className="earn-stat-card">
+              <span className="earn-stat-k">Avg / task</span>
+              <span className="earn-stat-v earn-stat-money">{completedTasks.length ? `$${avgPayout}` : '—'}</span>
+              <span className="earn-stat-d">Based on submitted</span>
+            </div>
+            <div className="earn-stat-card">
+              <span className="earn-stat-k">Still open</span>
+              <span className="earn-stat-v">{openTasks.length}</span>
+              <span className="earn-stat-d">You can earn more</span>
+            </div>
+          </div>
+
+          <div className="earn-stats-split">
+            <div className="earn-stats-split-cell">
+              <span className="earn-split-k">Paid to balance</span>
+              <span className="earn-split-v">${paidToBalance}</span>
+              <span className="earn-split-d">Approved & released</span>
+            </div>
+            <div className="earn-stats-split-cell">
+              <span className="earn-split-k">In review</span>
+              <span className="earn-split-v earn-split-v-dim">${inReviewValue}</span>
+              <span className="earn-split-d">Pending approval</span>
+            </div>
+          </div>
+
+          {completedTasks.length > 0 && (
+            <p className="earn-stats-mix">
+              Mix: <strong>{creativeDone}</strong> Creative · <strong>{microDone}</strong> Micro
+            </p>
+          )}
+
+          <EarnWeekBars values={weekActivity} />
+
+          <div className="earn-progress-block">
+            <div className="earn-progress-head">
+              <span>Progress to “power user”</span>
+              <span className="earn-progress-pct">{powerUserPct}%</span>
+            </div>
+            <div className="earn-progress-bar">
+              <div className="earn-progress-track" style={{ width: `${powerUserPct}%` }}>
+                <div className="earn-progress-fill earn-progress-fill-anim" />
+              </div>
+            </div>
+            <p className="earn-progress-copy">Every approved task levels this up — Whop uses it later for better matches (prototype).</p>
+          </div>
+
+          <div className="earn-tip">
+            <span className="earn-tip-label">Recommendation</span>
+            <p className="earn-tip-text">{tip}</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -848,7 +1192,6 @@ function TaskDetail({ task, done, onStart }) {
   return (
     <div className="screen">
       <div className="detail-hero">
-        <div className="dh-emoji">{task.emoji}</div>
         <div>
           <h2 className="dh-title">{task.title}</h2>
           <span className="dh-brand">by {task.brand}</span>
@@ -861,7 +1204,7 @@ function TaskDetail({ task, done, onStart }) {
         <div className="stat"><span className="stat-num">{task.slots}</span><span className="stat-lbl">slots left</span></div>
       </div>
 
-      <div className="escrow">🔒 Funds secured. ${task.payout} is locked in escrow for this task.</div>
+      <div className="escrow"><Icon name="lock" size={15} /> Funds secured. ${task.payout} is locked in escrow for this task.</div>
 
       <h3 className="detail-h">What to do</h3>
       <ol className="steps">
@@ -902,7 +1245,7 @@ function SubmitTask({ task, onSubmit }) {
         onChange={(e) => setLink(e.target.value)}
       />
 
-      <button className="upload">📎 or upload a screenshot / video</button>
+      <button className="upload"><Icon name="upload" size={16} /> or upload a screenshot / video</button>
 
       <button className={`feed-toggle ${toFeed ? 'on' : ''}`} onClick={() => setToFeed((v) => !v)}>
         <span className="ft-body">
@@ -924,27 +1267,46 @@ function SubmitTask({ task, onSubmit }) {
 function Done({ task, onMore, onClose }) {
   return (
     <div className="screen done-screen">
-      <div className="done-check">✓</div>
+      <AnimatedDoneCheck label="Task submitted" />
       <h2 className="done-h">Posted to the feed!</h2>
       <p className="done-sub">Your submission is in review. You’ll be paid <strong>${task.payout}</strong> the moment it’s approved.</p>
 
-      <div className="feed-post">
+      <div className="feed-post feed-post--done-preview stagger" style={{ animationDelay: '90ms' }}>
         <div className="fp-head">
           <span className="fp-avatar">JR</span>
           <div>
             <span className="fp-name">John R.</span>
-            <span className="fp-task">{task.emoji} {task.title}</span>
+            <span className="fp-task">{task.title}</span>
           </div>
           <span className="fp-pay">+${task.payout}</span>
         </div>
-        <div className="fp-media">📹 your submission</div>
-        <div className="fp-status">
-          <span className="dot done" />Submitted
-          <span className="line" />
-          <span className="dot live" />Under review
-          <span className="line dim" />
-          <span className="dot dim" />Paid
+        <div className="fp-media fp-media--submission">
+          <Icon name="play" size={20} />
+          <span>Your submission</span>
         </div>
+        <ul className="done-steps" aria-label="Payout status">
+          <li className="done-steps__item done-steps__item--complete">
+            <span className="done-steps__bullet" aria-hidden />
+            <div>
+              <span className="done-steps__title">Submitted</span>
+              <span className="done-steps__meta">Proof sent · visible on your feed</span>
+            </div>
+          </li>
+          <li className="done-steps__item done-steps__item--current">
+            <span className="done-steps__bullet" aria-hidden />
+            <div>
+              <span className="done-steps__title">Under review</span>
+              <span className="done-steps__meta">Brand checks quality · usually under 48h</span>
+            </div>
+          </li>
+          <li className="done-steps__item">
+            <span className="done-steps__bullet" aria-hidden />
+            <div>
+              <span className="done-steps__title">Paid</span>
+              <span className="done-steps__meta">${task.payout} releases to your balance on approval</span>
+            </div>
+          </li>
+        </ul>
       </div>
 
       <div className="sticky-cta col">

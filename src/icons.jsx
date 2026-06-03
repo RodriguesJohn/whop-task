@@ -31,8 +31,18 @@ export function Icon({ name, size = 22, fill, stroke = 1.7, className }) {
       return <svg {...p}><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
     case 'upload':
       return <svg {...p}><path d="M12 16V6" /><path d="m8 9 4-4 4 4" /><path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" /></svg>
+    case 'coins':
+      return <svg {...p}><ellipse cx="9" cy="6.5" rx="5.5" ry="2.5" /><path d="M3.5 6.5v4c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-4" /><path d="M9 13c-3 0-5.5-1.1-5.5-2.5" /><ellipse cx="15" cy="15.5" rx="5.5" ry="2.5" /><path d="M9.5 15.5v2c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5v-2" /></svg>
+    case 'store':
+      return <svg {...p}><path d="M4 10v9h16v-9" /><path d="M3 6h18l-1.2 4.2a2.4 2.4 0 0 1-4.6 0 2.4 2.4 0 0 1-4.4 0 2.4 2.4 0 0 1-4.4 0A2.4 2.4 0 0 1 4.2 10.2z" /><path d="M10 19v-4h4v4" /></svg>
+    case 'eye':
+      return <svg {...p}><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="2.6" /></svg>
+    case 'repost':
+      return <svg {...p}><path d="M4 9V7a2 2 0 0 1 2-2h11" /><path d="m14 2 3 3-3 3" /><path d="M20 15v2a2 2 0 0 1-2 2H7" /><path d="m10 22-3-3 3-3" /></svg>
     case 'aa':
       return <svg {...p} strokeWidth={1.5}><path d="M4 17 8 7l4 10" /><path d="M5.2 14h5.6" /><path d="M15 17l3-7 3 7" /><path d="M15.8 14.5h4.4" /></svg>
+    case 'check':
+      return <svg {...p} strokeWidth={2.25}><path d="M6.5 12.5 10.5 16.5 18.5 7.5" /></svg>
     default:
       return null
   }

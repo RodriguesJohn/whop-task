@@ -12,7 +12,7 @@ export const SEED_OWNER_PROGRAMS = [
     status: 'live',
     createdLabel: 'May 18',
     metrics: {
-      submissions7d: [2, 3, 2, 5, 6, 4, 7],
+      submissions7d: [1, 14, 3, 9, 2, 18, 6],
       pendingReview: 2,
       approved: 4,
       rejected: 0,
@@ -34,7 +34,7 @@ export const SEED_OWNER_PROGRAMS = [
     status: 'live',
     createdLabel: 'May 2',
     metrics: {
-      submissions7d: [8, 6, 9, 11, 7, 5, 10],
+      submissions7d: [12, 5, 15, 4, 22, 8, 11],
       pendingReview: 5,
       approved: 11,
       rejected: 3,
